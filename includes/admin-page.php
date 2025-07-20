@@ -12,7 +12,7 @@ function ai_generator_page()
         <form method="POST" enctype="multipart/form-data">
             <table class="form-table">
                 <tr>
-                    <th>CSV File (Product Names)</th>
+                    <th>CSV File (must include "name" column)</th>
                     <td><input type="file" name="csv_file" accept=".csv" required /></td>
                 </tr>
                 <tr>
@@ -36,17 +36,33 @@ function ai_generator_page()
 
         $rows = array_map('str_getcsv', file($file));
         $header = array_shift($rows);
-        $header[] = 'Description';
+
+        // Normalize headers to lowercase for case-insensitive search
+        $normalized_header = array_map('strtolower', $header);
+        $name_index = array_search('name', $normalized_header);
+        $desc_index = array_search('description', $normalized_header);
+
+        if ($name_index === false) {
+            echo "<div class='notice notice-error'><p>Error: 'name' column not found. Make sure it's included in your CSV.</p></div>";
+            return;
+        }
+
+        // If description column is missing, add it
+        if ($desc_index === false) {
+            $header[] = 'description';
+            $normalized_header[] = 'description';
+            $desc_index = count($header) - 1;
+        }
 
         $updated_rows = [];
 
         foreach ($rows as $row) {
-            $product_name = $row[0];
+            $product_name = $row[$name_index];
             $description = ai_generate_description($product_name, $api_key);
-            $row[] = $description;
+            $row[$desc_index] = $description;
             $updated_rows[] = $row;
 
-            // Create WooCommerce Product
+            // Create WooCommerce product
             $product_id = wp_insert_post([
                 'post_title'   => $product_name,
                 'post_content' => $description,
@@ -54,11 +70,9 @@ function ai_generator_page()
                 'post_type'    => 'product'
             ]);
 
-            // Optional basic product meta
             update_post_meta($product_id, '_regular_price', '49.99');
             update_post_meta($product_id, '_price', '49.99');
             update_post_meta($product_id, '_stock_status', 'instock');
-            update_post_meta($product_id, '_visibility', 'visible');
             update_post_meta($product_id, '_manage_stock', 'yes');
             update_post_meta($product_id, '_stock', '100');
             update_post_meta($product_id, '_product_type', 'simple');
@@ -79,6 +93,6 @@ function ai_generator_page()
         fclose($fp);
 
         $download_url = plugins_url('uploads/updated_products.csv', dirname(__FILE__));
-        echo "<div class='notice notice-success'><p><strong>Success!</strong> Products created and published. <a href='$download_url' target='_blank'>Download updated CSV</a></p></div>";
+        echo "<div class='notice notice-success'><p><strong>Success!</strong> Products created with SEO descriptions. <a href='$download_url' target='_blank'>Download updated CSV</a></p></div>";
     }
 }
