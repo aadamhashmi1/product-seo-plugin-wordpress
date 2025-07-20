@@ -2,7 +2,17 @@
 
 function ai_generate_description($product_name, $api_key)
 {
-    $prompt = "Write a 2000-word, SEO-optimized, highly unique product description for a product named \"$product_name\". Include features, emotional storytelling, buyer benefits, and strong marketing tone.";
+    $prompt = <<<PROMPT
+Write a unique, high-quality, SEO-optimized product description of approximately 2000 words for a product called "$product_name".
+
+Use HTML formatting:
+- Start with <h1>$product_name</h1> as the main heading.
+- Use <h2><span data-preserver-spaces="true"> and <h3> where needed for subheadings.
+- Use <p> for content paragraphs.
+- Add strong marketing language, product benefits, emotional appeals, use-cases, and buyer intent keywords.
+- Include 8 to 10 relevant FAQs about the product at the end with each question in <h3> and its answer in <p>.
+- Ensure each description is entirely unique and free of repeated filler or nonsense.
+PROMPT;
 
     $request_data = json_encode([
         'model' => 'llama3-70b-8192',
