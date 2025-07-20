@@ -3,7 +3,7 @@
  * Plugin Name: AI Product Page Generator
  * Description: Upload a CSV of product names, generate unique SEO descriptions using Groq API, and publish product pages.
  * Version: 1.0
- * Author: Aadam & Copilot
+ * Author: Aadam
  */
 
 defined('ABSPATH') or die('No script kiddies please!');
