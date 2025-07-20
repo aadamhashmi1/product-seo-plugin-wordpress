@@ -10,4 +10,5 @@ defined('ABSPATH') or die('No script kiddies please!');
 
 // Load dependencies
 require_once plugin_dir_path(__FILE__) . 'includes/admin-page.php';
-require_once plugin_dir_path(__FILE__) . 'includes/groq-api.php';
+require_once plugin_dir_path(__FILE__) . 'includes/groq-api.php';   
+// Register activation hook to create necessary database tables
