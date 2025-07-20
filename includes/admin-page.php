@@ -46,17 +46,26 @@ function ai_generator_page()
             $row[] = $description;
             $updated_rows[] = $row;
 
-            // Create WordPress page
-            wp_insert_post([
+            // Create WooCommerce Product
+            $product_id = wp_insert_post([
                 'post_title'   => $product_name,
                 'post_content' => $description,
                 'post_status'  => 'publish',
-                'post_type'    => 'page'
+                'post_type'    => 'product'
             ]);
+
+            // Optional basic product meta
+            update_post_meta($product_id, '_regular_price', '49.99');
+            update_post_meta($product_id, '_price', '49.99');
+            update_post_meta($product_id, '_stock_status', 'instock');
+            update_post_meta($product_id, '_visibility', 'visible');
+            update_post_meta($product_id, '_manage_stock', 'yes');
+            update_post_meta($product_id, '_stock', '100');
+            update_post_meta($product_id, '_product_type', 'simple');
         }
 
         // Save updated CSV
-        $upload_dir = plugin_dir_path(dirname(__FILE__)) . 'uploads/';
+        $upload_dir = plugin_dir_path(__FILE__) . '../uploads/';
         if (!file_exists($upload_dir)) {
             mkdir($upload_dir, 0755, true);
         }
@@ -70,6 +79,6 @@ function ai_generator_page()
         fclose($fp);
 
         $download_url = plugins_url('uploads/updated_products.csv', dirname(__FILE__));
-        echo "<div class='notice notice-success'><p><strong>Success!</strong> Pages created. <a href='$download_url' target='_blank'>Download updated CSV</a></p></div>";
+        echo "<div class='notice notice-success'><p><strong>Success!</strong> Products created and published. <a href='$download_url' target='_blank'>Download updated CSV</a></p></div>";
     }
 }
