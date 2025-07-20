@@ -12,7 +12,7 @@ function ai_generator_page()
         <form method="POST" enctype="multipart/form-data">
             <table class="form-table">
                 <tr>
-                    <th>CSV File (with "name" column)</th>
+                    <th>CSV File (must include "name" column)</th>
                     <td><input type="file" name="csv_file" accept=".csv" required /></td>
                 </tr>
                 <tr>
@@ -36,13 +36,13 @@ function ai_generator_page()
 
         $rows = array_map('str_getcsv', file($file));
         $header = array_shift($rows);
-
         $normalized_header = array_map('strtolower', $header);
+
         $name_index = array_search('name', $normalized_header);
         $desc_index = array_search('description', $normalized_header);
 
         if ($name_index === false) {
-            echo "<div class='notice notice-error'><p>Error: 'name' column missing.</p></div>";
+            echo "<div class='notice notice-error'><p>Error: 'name' column not found in CSV.</p></div>";
             return;
         }
 
@@ -55,28 +55,19 @@ function ai_generator_page()
 
         foreach ($rows as $row) {
             $product_name = $row[$name_index];
-
             $description = ai_generate_description($product_name, $api_key);
 
-            // Add keyword-rich block to meet keyword density (appears ~15–17 times)
-            $keyword_block = "";
-            for ($i = 0; $i < 15; $i++) {
-                $keyword_block .= "<p>Looking for the best $product_name? Discover why $product_name is trusted by users worldwide. Our guide to $product_name shows everything you need.</p>";
-            }
-
-            $final_description = $description . $keyword_block;
-
-            $row[$desc_index] = $final_description;
+            $row[$desc_index] = $description;
             $updated_rows[] = $row;
 
             $product_id = wp_insert_post([
                 'post_title'   => $product_name,
-                'post_content' => $final_description,
+                'post_content' => $description,
                 'post_status'  => 'publish',
                 'post_type'    => 'product'
             ]);
 
-            // WooCommerce metadata
+            // WooCommerce meta
             update_post_meta($product_id, '_regular_price', '49.99');
             update_post_meta($product_id, '_price', '49.99');
             update_post_meta($product_id, '_stock_status', 'instock');
@@ -84,7 +75,7 @@ function ai_generator_page()
             update_post_meta($product_id, '_stock', '100');
             update_post_meta($product_id, '_product_type', 'simple');
 
-            // Rank Math SEO
+            // Rank Math SEO meta
             update_post_meta($product_id, 'rank_math_focus_keyword', $product_name);
             update_post_meta($product_id, 'rank_math_title', "$product_name | # 1 Best $product_name");
             update_post_meta($product_id, 'rank_math_description', "$product_name | # 1 Best $product_name |");
@@ -104,6 +95,6 @@ function ai_generator_page()
         fclose($fp);
 
         $download_url = plugins_url('uploads/updated_products.csv', dirname(__FILE__));
-        echo "<div class='notice notice-success'><p><strong>Success!</strong> Products created with full SEO blocks, images, and Rank Math scoring enabled. <a href='$download_url' target='_blank'>Download updated CSV</a></p></div>";
+        echo "<div class='notice notice-success'><p><strong>Success!</strong> Products generated with optimal keyword density, unique descriptions, images, and Rank Math fields. <a href='$download_url' target='_blank'>Download CSV</a></p></div>";
     }
 }
