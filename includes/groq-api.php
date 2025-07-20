@@ -3,15 +3,23 @@
 function ai_generate_description($product_name, $api_key)
 {
     $prompt = <<<PROMPT
-Write a unique, high-quality, SEO-optimized product description of approximately 2000 words for a product called "$product_name".
+Write a comprehensive, SEO-optimized HTML article of approximately 2000 words about the product "$product_name". 
+
+The content must be completely unique — do not repeat structures, headings, or examples across different products. Vary the heading phrasing and ensure every product has its own distinct format, flow, and vocabulary. Do not reuse bullet point templates or FAQ questions across products.
 
 Use HTML formatting:
-- Start with <h1>$product_name</h1> as the main heading.
-- Use <h2><span data-preserver-spaces="true"> and <h3> where needed for subheadings.
-- Use <p> for content paragraphs.
-- Add strong marketing language, product benefits, emotional appeals, use-cases, and buyer intent keywords.
-- Include 8 to 10 relevant FAQs about the product at the end with each question in <h3> and its answer in <p>.
-- Ensure each description is entirely unique and free of repeated filler or nonsense.
+- Begin with a unique <h1> title that includes "$product_name" in a creative and descriptive way.
+- Structure the article with meaningful, keyword-rich headings using <h2><span data-preserver-spaces="true">, <h3>, and <p>.
+- Include a strong introduction (2–3 sentences).
+- Provide a detailed explanation of what "$product_name" is.
+- Clearly list its benefits (5–7) using varied wording and formatting.
+- Show how to use "$product_name" with step-by-step guidance (bullets or numbered list).
+- Mention any precautions, warnings, or side effects in a separate section.
+- Conclude with 8–10 unique FAQs, each in <h3> and <p>. Questions should differ per product and be tailored to the product’s real-world context.
+
+Avoid repetition in language, tone, format, and structure. Use diverse keywords, emotional and functional hooks, and SEO techniques that suit "$product_name".
+
+All content must be clean, readable, professional, and promotion-worthy.
 PROMPT;
 
     $request_data = json_encode([
