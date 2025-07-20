@@ -2,24 +2,22 @@
 
 function ai_generate_description($product_name, $api_key)
 {
-    $prompt = <<<PROMPT
-Write a comprehensive, SEO-optimized HTML article of approximately 2000 words about the product "$product_name". 
+    // Generate product image URL using Bing Image Creator or placeholder logic
+    $image_tag = "<img src='https://via.placeholder.com/800x600?text=" . urlencode($product_name) . "' alt='" . esc_attr($product_name) . "' style='width:100%;height:auto;margin-bottom:20px;' />";
 
-The content must be completely unique — do not repeat structures, headings, or examples across different products. Vary the heading phrasing and ensure every product has its own distinct format, flow, and vocabulary. Do not reuse bullet point templates or FAQ questions across products.
+    $prompt = <<<PROMPT
+Write a comprehensive, SEO-optimized HTML article of approximately 2000 words about the product "$product_name".
+
+The content must be completely unique. Do not repeat structures, headings, or examples across products. Vary the headings and paragraph structures.
 
 Use HTML formatting:
-- Begin with a unique <h1> title that includes "$product_name" in a creative and descriptive way.
-- Structure the article with meaningful, keyword-rich headings using <h2><span data-preserver-spaces="true">, <h3>, and <p>.
-- Include a strong introduction (2–3 sentences).
-- Provide a detailed explanation of what "$product_name" is.
-- Clearly list its benefits (5–7) using varied wording and formatting.
-- Show how to use "$product_name" with step-by-step guidance (bullets or numbered list).
-- Mention any precautions, warnings, or side effects in a separate section.
-- Conclude with 8–10 unique FAQs, each in <h3> and <p>. Questions should differ per product and be tailored to the product’s real-world context.
+- After the first paragraph, insert this image tag: $image_tag
+- Use <h1> for a custom, compelling title that includes "$product_name"
+- Use <h2><span data-preserver-spaces="true"> and <h3> for headings
+- Use <p> for readable, keyword-rich paragraphs
+- Include a brief introduction, detailed benefits, how-to guide, side effects, and 8–10 custom FAQs
 
-Avoid repetition in language, tone, format, and structure. Use diverse keywords, emotional and functional hooks, and SEO techniques that suit "$product_name".
-
-All content must be clean, readable, professional, and promotion-worthy.
+All writing should be promotional, non-generic, and SEO-targeted for "$product_name".
 PROMPT;
 
     $request_data = json_encode([
