@@ -2,27 +2,29 @@
 
 function ai_generate_description($product_name, $api_key)
 {
+    $site_locale = get_locale(); // e.g. 'en_US', 'fr_FR', 'ja_JP'
+
     $image_tag = "<img src='https://via.placeholder.com/800x600?text=" . urlencode($product_name) . "' alt='" . esc_attr($product_name) . "' style='width:100%;height:auto;margin-bottom:20px;' />";
 
     $prompt = <<<PROMPT
-Write a clean, readable, SEO-optimized HTML article about "$product_name" that is approximately 2000 words long.
+Write a clean, persuasive, SEO-optimized HTML article about "$product_name" for a $site_locale audience, approximately 2000 words long.
 
 Requirements:
 - Mention "$product_name" no more than 17 times
-- Avoid keyword stuffing and repeated phrases
-- Every paragraph should be unique and helpful
-- Embed the following image at the top: $image_tag
+- Avoid repeated phrases and keyword stuffing
+- Every paragraph must be culturally adapted and non-repetitive
+- Embed this image at the top: $image_tag
 
-Use the following structure:
-- <h1> title with "$product_name"
-- Introduction (<p>) explaining the product
-- <h2> What Is "$product_name"?</h2>
-- <h2> Benefits of "$product_name"</h2> — list 5–7 unique benefits
-- <h2> How to Use "$product_name"</h2> — step-by-step guide
-- <h2> Side Effects or Precautions</h2> — concise warnings
-- <h2> Frequently Asked Questions</h2> — 8–10 tailored FAQs in <h3> + <p> format
+Structure:
+- <h1> SEO title including "$product_name"
+- <p> Introduction tailored to regional buying behavior and emotional tone
+- <h2> What Is "$product_name"?</h2> — regionally relevant description
+- <h2> Benefits of "$product_name"</h2> — 5–7 distinct advantages, matching local values
+- <h2> How to Use "$product_name"</h2> — usage patterns aligned with cultural norms
+- <h2> Side Effects or Precautions</h2> — if applicable
+- <h2> Frequently Asked Questions</h2> — 8–10 location-aware FAQs using <h3> and <p>
 
-Use diverse vocabulary. All writing must be clear, original, and formatted as valid HTML.
+Ensure tone, examples, and wording reflect the interests, lifestyle, and language expectations common for $site_locale users. All writing must be valid HTML, SEO-friendly, and original.
 PROMPT;
 
     $request_data = json_encode([
@@ -46,7 +48,7 @@ PROMPT;
     $result = json_decode($response, true);
     $raw_content = $result['choices'][0]['message']['content'] ?? 'No content generated.';
 
-    // Enforce keyword usage limit
+    // Enforce keyword usage limit (max 17 mentions)
     $max_occurrences = 17;
     $keyword_count = substr_count(strtolower($raw_content), strtolower($product_name));
 
