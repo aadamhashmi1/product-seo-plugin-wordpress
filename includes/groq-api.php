@@ -144,62 +144,6 @@ PROMPT;
         }
         file_put_contents($log_path, implode("\n", $error_log) . "\n", FILE_APPEND);
     }
-        // 🔍 Extract FAQs
-$faq_matches = [];
-preg_match_all('/<h3>(.*?)<\/h3>\s*<p>(.*?)<\/p>/is', $clean_content, $faq_matches);
-$faqs = [];
-for ($i = 0; $i < count($faq_matches[1]); $i++) {
-    $question = trim(strip_tags($faq_matches[1][$i]));
-    $answer = trim(strip_tags($faq_matches[2][$i]));
-    if ($question && $answer) {
-        $faqs[] = [
-            '@type' => 'Question',
-            'name' => $question,
-            'acceptedAnswer' => [
-                '@type' => 'Answer',
-                'text' => $answer
-            ]
-        ];
-    }
-}
-
-// 🔧 Extract HowTo steps
-$howto = [];
-if (preg_match('/<h2>.*?how to.*?<\/h2>(.*?)<h2>/is', $clean_content . '<h2>', $howto_block)) {
-    preg_match_all('/<li>(.*?)<\/li>/is', $howto_block[1], $step_matches);
-    foreach ($step_matches[1] as $i => $step_text) {
-        $howto[] = [
-            '@type' => 'HowToStep',
-            'position' => $i + 1,
-            'name' => strip_tags($step_text),
-            'text' => strip_tags($step_text)
-        ];
-    }
-}
-
-// 📦 Build JSON-LD
-$schema = [
-    '@context' => 'https://schema.org',
-    '@graph' => []
-];
-
-if (count($faqs) >= 3) {
-    $schema['@graph'][] = [
-        '@type' => 'FAQPage',
-        'mainEntity' => $faqs
-    ];
-}
-
-if (count($howto) >= 2) {
-    $schema['@graph'][] = [
-        '@type' => 'HowTo',
-        'name' => $product_name . ' Usage Guide',
-        'step' => $howto
-    ];
-}
-
-// ✨ Embed JSON-LD schema
-$clean_content .= "\n<script type=\"application/ld+json\">" . json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "</script>";
-
+        
     return $clean_content;
 }
