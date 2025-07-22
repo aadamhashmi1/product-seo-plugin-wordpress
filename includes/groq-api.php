@@ -2,7 +2,7 @@
 
 function ai_generate_description($product_name, $api_key, $region = 'Global')
 {
-    // Moderation: Replace sensitive terms for safe prompt usage
+    // 🔒 Moderation: Replace sensitive terms for safer prompt handling
     $moderated_terms = [
         'cigarette' => 'adult wellness product',
         'vape' => 'adult inhaler device',
@@ -17,7 +17,6 @@ function ai_generate_description($product_name, $api_key, $region = 'Global')
     ];
 
     $safe_name = $product_name;
-
     foreach ($moderated_terms as $term => $replacement) {
         if (stripos($product_name, $term) !== false) {
             $safe_name = str_ireplace($term, $replacement, $product_name);
@@ -28,13 +27,13 @@ function ai_generate_description($product_name, $api_key, $region = 'Global')
     $image_tag = "<img src='https://via.placeholder.com/800x600?text=" . urlencode($safe_name) . "' alt='" . esc_attr($safe_name) . "' style='width:100%;height:auto;margin-bottom:20px;' />";
 
     $base_prompt = <<<PROMPT
-You are a professional product copywriter. Create a detailed, persuasive, SEO-optimized HTML article about "$safe_name" tailored for buyers in $region.
+You are a professional product copywriter. Create a detailed, persuasive, SEO-optimized HTML article about "$safe_name" tailored for buyers in $region. It should be exactly 2000 words long.
 
 Requirements:
 - Must be written in English
 - Use correct HTML: <h1>, <h2>, <h3>, <p>, <ul>, <li>
 - Embed this image at the top: $image_tag
-- Mention "$safe_name" no more than 13 times
+- Mention "$safe_name" exactly 13 times — no more, no less
 - Avoid keyword stuffing, repetition, or filler language
 - Include exactly 10 FAQs with <h3> + <p> tags
 
@@ -58,11 +57,11 @@ PROMPT;
 
     while (!$valid && $attempt < $max_attempts) {
         $attempt++;
-        $delay = pow(2, $attempt); // Exponential backoff
+        $delay = pow(2, $attempt);
 
         $prompt = $base_prompt;
         if ($attempt > 1) {
-            $prompt .= "\n\nImprove clarity and correct any formatting or content issues.";
+            $prompt .= "\n\nImprove formatting and ensure proper structure. Fix missing FAQs or heading tags. Keep language English.";
         }
 
         $request_data = json_encode([
@@ -84,11 +83,11 @@ PROMPT;
         $result = json_decode($response, true);
         $raw = $result['choices'][0]['message']['content'] ?? '';
 
-        // Remove AI boilerplate
+        // ✂️ Clean AI boilerplate
         $raw = preg_replace('/^Here.*?:\s*/i', '', $raw);
         $raw = preg_replace('/I hope.*?modifications\./i', '', $raw);
 
-        // Validate content quality
+        // ✅ Content validation
         $is_long = strlen(trim($raw)) > 600;
         $has_h1 = preg_match('/<h1>.*<\/h1>/i', $raw);
         $is_english = preg_match('/[A-Za-z]{5,}/', $raw);
@@ -114,17 +113,30 @@ PROMPT;
         $error_log[] = "❌ Final failure for '$product_name'.";
     }
 
-    // Cap keyword usage
-    $max_occurrences = 17;
-    $keyword_count = substr_count(strtolower($clean_content), strtolower($safe_name));
-    if ($keyword_count > $max_occurrences) {
+    // 🎯 Enforce exact keyword count (13 times)
+    $target_count = 13;
+    $current_count = substr_count(strtolower($clean_content), strtolower($safe_name));
+
+    if ($current_count > $target_count) {
+        $count = 0;
         $pattern = '/' . preg_quote($safe_name, '/') . '/i';
-        $clean_content = preg_replace_callback($pattern, function ($match) use (&$max_occurrences) {
-            return --$max_occurrences >= 0 ? $match[0] : 'the product';
+        $clean_content = preg_replace_callback($pattern, function ($match) use (&count, $target_count) {
+            return (++$count <= $target_count) ? $match[0] : 'the product';
         }, $clean_content);
+    } elseif ($current_count < $target_count) {
+        $needed = $target_count - $current_count;
+        for ($i = 0; $i < $needed; $i++) {
+            $clean_content .= "<p>{$safe_name} is trusted by $region buyers for quality and reliability.</p>";
+        }
     }
 
-    // Save log
+    // 🔍 Log final keyword count
+    $final_count = substr_count(strtolower($clean_content), strtolower($safe_name));
+    if ($final_count !== 13) {
+        $error_log[] = "⚠️ Final keyword count for '$product_name' was $final_count instead of 13.";
+    }
+
+    // 📝 Save error log (if any)
     if (!empty($error_log)) {
         $log_path = plugin_dir_path(__FILE__) . '../uploads/error-log.txt';
         if (!file_exists(dirname($log_path))) {
