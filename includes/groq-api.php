@@ -2,7 +2,7 @@
 
 function ai_generate_description($product_name, $api_key, $region = 'Global')
 {
-    // 🔒 Moderation: Replace sensitive terms for safer prompt handling
+    // 🔒 Replace sensitive product terms
     $moderated_terms = [
         'cigarette' => 'adult wellness product',
         'vape' => 'adult inhaler device',
@@ -23,6 +23,9 @@ function ai_generate_description($product_name, $api_key, $region = 'Global')
             break;
         }
     }
+
+    // Normalize keyword (remove punctuation for enforcement)
+    $normalized_keyword = preg_replace('/[^a-zA-Z0-9 ]/', '', $product_name);
 
     $image_tag = "<img src='https://via.placeholder.com/800x600?text=" . urlencode($safe_name) . "' alt='" . esc_attr($safe_name) . "' style='width:100%;height:auto;margin-bottom:20px;' />";
 
@@ -61,7 +64,7 @@ PROMPT;
 
         $prompt = $base_prompt;
         if ($attempt > 1) {
-            $prompt .= "\n\nImprove formatting and ensure proper structure. Fix missing FAQs or heading tags. Keep language English.";
+            $prompt .= "\n\nFix language, HTML structure, and keyword balance. Keep it clean and focused.";
         }
 
         $request_data = json_encode([
@@ -83,11 +86,9 @@ PROMPT;
         $result = json_decode($response, true);
         $raw = $result['choices'][0]['message']['content'] ?? '';
 
-        // ✂️ Clean AI boilerplate
         $raw = preg_replace('/^Here.*?:\s*/i', '', $raw);
         $raw = preg_replace('/I hope.*?modifications\./i', '', $raw);
 
-        // ✅ Content validation
         $is_long = strlen(trim($raw)) > 600;
         $has_h1 = preg_match('/<h1>.*<\/h1>/i', $raw);
         $is_english = preg_match('/[A-Za-z]{5,}/', $raw);
@@ -101,7 +102,7 @@ PROMPT;
             $error_log[] = "Attempt $attempt failed for '$product_name':"
                 . (!$is_long ? " Too short;" : "")
                 . (!$has_h1 ? " Missing <h1>;" : "")
-                . (!$is_english ? " Non-English content;" : "")
+                . (!$is_english ? " Not English;" : "")
                 . (!$has_faqs ? " Only $faq_count FAQs;" : "")
                 . " Waiting {$delay}s...";
             sleep($delay);
@@ -113,30 +114,29 @@ PROMPT;
         $error_log[] = "❌ Final failure for '$product_name'.";
     }
 
-    // 🎯 Enforce exact keyword count (13 times)
+    // 🎯 Enforce keyword mention count — exactly 13 mentions of the true product name
     $target_count = 13;
-    $current_count = substr_count(strtolower($clean_content), strtolower($safe_name));
+    $pattern = '/' . preg_quote($normalized_keyword, '/') . '/i';
+    $current_count = substr_count(strtolower($clean_content), strtolower($normalized_keyword));
 
     if ($current_count > $target_count) {
         $count = 0;
-        $pattern = '/' . preg_quote($safe_name, '/') . '/i';
-        $clean_content = preg_replace_callback($pattern, function ($match) use (&count, $target_count) {
+        $clean_content = preg_replace_callback($pattern, function ($match) use (&$count, $target_count) {
             return (++$count <= $target_count) ? $match[0] : 'the product';
         }, $clean_content);
     } elseif ($current_count < $target_count) {
         $needed = $target_count - $current_count;
         for ($i = 0; $i < $needed; $i++) {
-            $clean_content .= "<p>{$safe_name} is trusted by $region buyers for quality and reliability.</p>";
+            $clean_content .= "<p>{$normalized_keyword} is popular among $region buyers for its style and performance.</p>";
         }
     }
 
-    // 🔍 Log final keyword count
-    $final_count = substr_count(strtolower($clean_content), strtolower($safe_name));
+    // 🔍 Final count check
+    $final_count = substr_count(strtolower($clean_content), strtolower($normalized_keyword));
     if ($final_count !== 13) {
-        $error_log[] = "⚠️ Final keyword count for '$product_name' was $final_count instead of 13.";
+        $error_log[] = "⚠️ Final count for '$product_name' was $final_count instead of 13.";
     }
 
-    // 📝 Save error log (if any)
     if (!empty($error_log)) {
         $log_path = plugin_dir_path(__FILE__) . '../uploads/error-log.txt';
         if (!file_exists(dirname($log_path))) {
@@ -144,6 +144,62 @@ PROMPT;
         }
         file_put_contents($log_path, implode("\n", $error_log) . "\n", FILE_APPEND);
     }
+        // 🔍 Extract FAQs
+$faq_matches = [];
+preg_match_all('/<h3>(.*?)<\/h3>\s*<p>(.*?)<\/p>/is', $clean_content, $faq_matches);
+$faqs = [];
+for ($i = 0; $i < count($faq_matches[1]); $i++) {
+    $question = trim(strip_tags($faq_matches[1][$i]));
+    $answer = trim(strip_tags($faq_matches[2][$i]));
+    if ($question && $answer) {
+        $faqs[] = [
+            '@type' => 'Question',
+            'name' => $question,
+            'acceptedAnswer' => [
+                '@type' => 'Answer',
+                'text' => $answer
+            ]
+        ];
+    }
+}
+
+// 🔧 Extract HowTo steps
+$howto = [];
+if (preg_match('/<h2>.*?how to.*?<\/h2>(.*?)<h2>/is', $clean_content . '<h2>', $howto_block)) {
+    preg_match_all('/<li>(.*?)<\/li>/is', $howto_block[1], $step_matches);
+    foreach ($step_matches[1] as $i => $step_text) {
+        $howto[] = [
+            '@type' => 'HowToStep',
+            'position' => $i + 1,
+            'name' => strip_tags($step_text),
+            'text' => strip_tags($step_text)
+        ];
+    }
+}
+
+// 📦 Build JSON-LD
+$schema = [
+    '@context' => 'https://schema.org',
+    '@graph' => []
+];
+
+if (count($faqs) >= 3) {
+    $schema['@graph'][] = [
+        '@type' => 'FAQPage',
+        'mainEntity' => $faqs
+    ];
+}
+
+if (count($howto) >= 2) {
+    $schema['@graph'][] = [
+        '@type' => 'HowTo',
+        'name' => $product_name . ' Usage Guide',
+        'step' => $howto
+    ];
+}
+
+// ✨ Embed JSON-LD schema
+$clean_content .= "\n<script type=\"application/ld+json\">" . json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "</script>";
 
     return $clean_content;
 }
