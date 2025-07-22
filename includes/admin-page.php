@@ -12,7 +12,7 @@ function ai_generator_page()
         <form method="POST" enctype="multipart/form-data">
             <table class="form-table">
                 <tr>
-                    <th>CSV File (must include "name" column)</th>
+                    <th>CSV File (with "name" column)</th>
                     <td><input type="file" name="csv_file" accept=".csv" required /></td>
                 </tr>
                 <tr>
@@ -94,6 +94,9 @@ function ai_generator_page()
             update_post_meta($product_id, 'rank_math_focus_keyword', $product_name);
             update_post_meta($product_id, 'rank_math_title', "$product_name | # 1 Best $product_name");
             update_post_meta($product_id, 'rank_math_description', "$product_name | # 1 Best $product_name |");
+
+            // 🔄 Force Rank Math to recalculate SEO score
+            wp_update_post(['ID' => $product_id]);
         }
 
         $upload_dir = plugin_dir_path(__FILE__) . '../uploads/';
@@ -110,6 +113,6 @@ function ai_generator_page()
         fclose($fp);
 
         $download_url = plugins_url('uploads/updated_products.csv', dirname(__FILE__));
-        echo "<div class='notice notice-success'><p><strong>Success!</strong> Products generated with region-aware descriptions, images, and SEO settings. <a href='$download_url' target='_blank'>Download CSV</a></p></div>";
+        echo "<div class='notice notice-success'><p><strong>Success!</strong> Products created with region-aware SEO, keyword optimization, images, and Rank Math integration. <a href='$download_url' target='_blank'>Download updated CSV</a></p></div>";
     }
 }
