@@ -1,0 +1,21 @@
+#aipg-progress {
+  font-family: sans-serif;
+}
+#aipg-progress ul {
+  padding: 0;
+  list-style: none;
+}
+#aipg-progress li {
+  margin-bottom: 6px;
+  padding: 6px;
+  border-bottom: 1px solid #ddd;
+}
+#aipg-progress .done {
+  color: green;
+}
+#aipg-progress .pending {
+  color: orange;
+}
+#aipg-progress .error {
+  color: red;
+}
