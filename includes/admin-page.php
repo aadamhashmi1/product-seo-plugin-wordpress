@@ -94,9 +94,10 @@ function ai_generator_page()
             update_post_meta($product_id, 'rank_math_focus_keyword', $product_name);
             update_post_meta($product_id, 'rank_math_title', "$product_name | # 1 Best $product_name");
             update_post_meta($product_id, 'rank_math_description', "$product_name | # 1 Best $product_name |");
-
+            
             // 🔄 Force Rank Math to recalculate SEO score
-            wp_update_post(['ID' => $product_id]);
+            wp_update_post(['ID' => $product_id]); // re-save the product
+            do_action('rank_math/recalculate_score', $product_id); 
         }
 
         $upload_dir = plugin_dir_path(__FILE__) . '../uploads/';
