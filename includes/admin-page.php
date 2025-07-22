@@ -95,19 +95,11 @@ function ai_generator_page()
             update_post_meta($product_id, 'rank_math_title', "$product_name | # 1 Best $product_name");
             update_post_meta($product_id, 'rank_math_description', "$product_name | # 1 Best $product_name |");
 
-            // Trigger Rank Math scoring reliably
-            $post_data = get_post($product_id);
-            $post_data->post_title .= ' '; // force change
-            wp_update_post($post_data);
-            do_action('rank_math/recalculate_score', $product_id);
+           // Trigger Rank Math scoring reliably
+           if (function_exists('rank_math')) {
+               rank_math()->meta->update_post_meta($product_id);
+           }
 
-            // ✅ Live progress feedback
-            $percent = round((($index + 1) / $total_products) * 100);
-            $elapsed = microtime(true) - $start_time;
-            $avg_time = $elapsed / ($index + 1);
-            $time_left = round($avg_time * ($total_products - $index - 1));
-            echo "<p>🛠️ Generating: <strong>$product_name</strong><br>Progress: $percent% ($index + 1 / $total_products)<br>⏱️ Estimated time remaining: {$time_left}s</p>";
-            flush();
         }
 
         $upload_dir = plugin_dir_path(__FILE__) . '../uploads/';
