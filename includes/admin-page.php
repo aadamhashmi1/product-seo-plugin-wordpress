@@ -12,7 +12,7 @@ function ai_generator_page()
         <form method="POST" enctype="multipart/form-data">
             <table class="form-table">
                 <tr>
-                    <th>CSV File (with "name" column)</th>
+                    <th>CSV File (must include "name" column)</th>
                     <td><input type="file" name="csv_file" accept=".csv" required /></td>
                 </tr>
                 <tr>
@@ -57,7 +57,7 @@ function ai_generator_page()
         $desc_index = array_search('description', $normalized_header);
 
         if ($name_index === false) {
-            echo "<div class='notice notice-error'><p>Error: 'name' column missing.</p></div>";
+            echo "<div class='notice notice-error'><p>Error: 'name' column missing in CSV.</p></div>";
             return;
         }
 
@@ -66,9 +66,11 @@ function ai_generator_page()
             $desc_index = count($header) - 1;
         }
 
+        $total_products = count($rows);
+        $start_time = microtime(true);
         $updated_rows = [];
 
-        foreach ($rows as $row) {
+        foreach ($rows as $index => $row) {
             $product_name = $row[$name_index];
             $description = ai_generate_description($product_name, $api_key, $region);
 
@@ -82,7 +84,6 @@ function ai_generator_page()
                 'post_type'    => 'product'
             ]);
 
-            // WooCommerce meta
             update_post_meta($product_id, '_regular_price', '49.99');
             update_post_meta($product_id, '_price', '49.99');
             update_post_meta($product_id, '_stock_status', 'instock');
@@ -90,14 +91,23 @@ function ai_generator_page()
             update_post_meta($product_id, '_stock', '100');
             update_post_meta($product_id, '_product_type', 'simple');
 
-            // Rank Math SEO meta
             update_post_meta($product_id, 'rank_math_focus_keyword', $product_name);
             update_post_meta($product_id, 'rank_math_title', "$product_name | # 1 Best $product_name");
             update_post_meta($product_id, 'rank_math_description', "$product_name | # 1 Best $product_name |");
-            
-            // 🔄 Force Rank Math to recalculate SEO score
-            wp_update_post(['ID' => $product_id]); // re-save the product
-            do_action('rank_math/recalculate_score', $product_id); 
+
+            // Trigger Rank Math scoring reliably
+            $post_data = get_post($product_id);
+            $post_data->post_title .= ' '; // force change
+            wp_update_post($post_data);
+            do_action('rank_math/recalculate_score', $product_id);
+
+            // ✅ Live progress feedback
+            $percent = round((($index + 1) / $total_products) * 100);
+            $elapsed = microtime(true) - $start_time;
+            $avg_time = $elapsed / ($index + 1);
+            $time_left = round($avg_time * ($total_products - $index - 1));
+            echo "<p>🛠️ Generating: <strong>$product_name</strong><br>Progress: $percent% ($index + 1 / $total_products)<br>⏱️ Estimated time remaining: {$time_left}s</p>";
+            flush();
         }
 
         $upload_dir = plugin_dir_path(__FILE__) . '../uploads/';
@@ -114,6 +124,6 @@ function ai_generator_page()
         fclose($fp);
 
         $download_url = plugins_url('uploads/updated_products.csv', dirname(__FILE__));
-        echo "<div class='notice notice-success'><p><strong>Success!</strong> Products created with region-aware SEO, keyword optimization, images, and Rank Math integration. <a href='$download_url' target='_blank'>Download updated CSV</a></p></div>";
+        echo "<div class='notice notice-success'><p><strong>Success!</strong> Region-based SEO content created for all products. <a href='$download_url' target='_blank'>Download updated CSV</a></p></div>";
     }
 }
