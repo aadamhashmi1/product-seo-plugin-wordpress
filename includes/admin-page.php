@@ -19,6 +19,20 @@ function ai_generator_page()
                     <th>Groq API Key</th>
                     <td><input type="text" name="groq_api_key" style="width:400px;" required /></td>
                 </tr>
+                <tr>
+                    <th>Target Region</th>
+                    <td>
+                        <select name="target_region" required>
+                            <option value="Asia">Asia</option>
+                            <option value="Europe">Europe</option>
+                            <option value="North America">North America</option>
+                            <option value="South America">South America</option>
+                            <option value="Africa">Africa</option>
+                            <option value="Australia">Australia</option>
+                            <option value="Antarctica">Antarctica</option>
+                        </select>
+                    </td>
+                </tr>
             </table>
             <p><input type="submit" name="submit_csv" value="Upload & Generate" class="button button-primary" /></p>
         </form>
@@ -27,6 +41,7 @@ function ai_generator_page()
 
     if (isset($_POST['submit_csv'])) {
         $api_key = sanitize_text_field($_POST['groq_api_key']);
+        $region = sanitize_text_field($_POST['target_region']);
         $file = $_FILES['csv_file']['tmp_name'];
 
         if (!file_exists($file)) {
@@ -42,7 +57,7 @@ function ai_generator_page()
         $desc_index = array_search('description', $normalized_header);
 
         if ($name_index === false) {
-            echo "<div class='notice notice-error'><p>Error: 'name' column not found in CSV.</p></div>";
+            echo "<div class='notice notice-error'><p>Error: 'name' column missing.</p></div>";
             return;
         }
 
@@ -55,7 +70,7 @@ function ai_generator_page()
 
         foreach ($rows as $row) {
             $product_name = $row[$name_index];
-            $description = ai_generate_description($product_name, $api_key);
+            $description = ai_generate_description($product_name, $api_key, $region);
 
             $row[$desc_index] = $description;
             $updated_rows[] = $row;
@@ -95,6 +110,6 @@ function ai_generator_page()
         fclose($fp);
 
         $download_url = plugins_url('uploads/updated_products.csv', dirname(__FILE__));
-        echo "<div class='notice notice-success'><p><strong>Success!</strong> Products generated with optimal keyword density, unique descriptions, images, and Rank Math fields. <a href='$download_url' target='_blank'>Download CSV</a></p></div>";
+        echo "<div class='notice notice-success'><p><strong>Success!</strong> Products generated with region-aware descriptions, images, and SEO settings. <a href='$download_url' target='_blank'>Download CSV</a></p></div>";
     }
 }
