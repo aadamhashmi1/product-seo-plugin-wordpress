@@ -49,9 +49,89 @@ function ai_generator_page() {
     <?php
 
     if (isset($_POST['submit_csv'])) {
-        ai_generator_process_csv();
+    $api_key = sanitize_text_field($_POST['groq_api_key']);
+    $region  = sanitize_text_field($_POST['target_region']);
+    $file    = $_FILES['csv_file']['tmp_name'];
+
+    if (!file_exists($file)) {
+        echo "<div class='notice notice-error'><p>Error: File not found.</p></div>";
+        return;
     }
+
+    $rows = array_map('str_getcsv', file($file));
+    $header = array_map('strtolower', array_map('trim', array_shift($rows)));
+
+    if (!in_array('name', $header)) {
+        echo "<div class='notice notice-error'><p>Error: 'name' column missing in CSV.</p></div>";
+        return;
+    }
+
+    $payload = [
+        'rows' => $rows,
+        'header' => $header,
+        'api_key' => $api_key,
+        'region' => $region
+    ];
+
+    set_transient('ai_batch_payload', $payload, 60 * 60);
+
+    echo "<div class='notice notice-success'><p>✅ CSV uploaded. Ready to start import.</p></div>";
+    echo "<button id='start-import' class='button button-primary'>Start Import</button>";
+    echo "<progress id='progress-bar' value='0' max='" . count($rows) . "'></progress>";
+    echo "<p id='status'></p>";
 }
+
+}
+add_action('wp_ajax_ai_generate_batch', 'ai_generate_batch');
+function ai_generate_batch() {
+    $batch_index = intval($_POST['batch_index']);
+    $batch_size = 5;
+
+    $payload = get_transient('ai_batch_payload');
+    if (!$payload) wp_send_json_error(['message' => 'No data found.']);
+
+    $rows = $payload['rows'];
+    $header = $payload['header'];
+    $api_key = $payload['api_key'];
+    $region = $payload['region'];
+
+    $start = $batch_index * $batch_size;
+    $batch = array_slice($rows, $start, $batch_size);
+
+    foreach ($batch as $row) {
+        $name_index = array_search('name', $header);
+        $desc_index = array_search('description', $header);
+
+        $product_name = isset($row[$name_index]) ? trim($row[$name_index]) : '';
+        if (empty($product_name)) continue;
+
+        $description = isset($row[$desc_index]) && !empty($row[$desc_index])
+            ? $row[$desc_index]
+            : ai_generate_description($product_name, $api_key, $region);
+
+        $row[$desc_index] = $description;
+
+        $product_id = wp_insert_post([
+            'post_title'   => $product_name,
+            'post_content' => $description,
+            'post_status'  => 'publish',
+            'post_type'    => 'product'
+        ]);
+
+        if (is_wp_error($product_id)) continue;
+
+        // You can reuse your column_map logic here later
+    }
+
+    wp_send_json_success(['processed' => count($batch)]);
+}
+add_action('admin_enqueue_scripts', function () {
+    wp_enqueue_script('ai-import-js', plugin_dir_url(__FILE__) . 'js/ai-import.js', ['jquery'], null, true);
+    wp_localize_script('ai-import-js', 'ai_ajax', [
+        'ajaxurl' => admin_url('admin-ajax.php'),
+        'totalRows' => get_transient('ai_batch_payload') ? count(get_transient('ai_batch_payload')['rows']) : 0
+    ]);
+});
 
 function ai_generator_process_csv() {
     require_once ABSPATH . 'wp-admin/includes/image.php';

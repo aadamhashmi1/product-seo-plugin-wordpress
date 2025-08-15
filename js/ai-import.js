@@ -1,6 +1,6 @@
 jQuery(document).ready(function($) {
     const batchSize = 5;
-    const totalRows = 100; // You can pass this dynamically
+    const totalRows = ai_ajax.totalRows;
     const totalBatches = Math.ceil(totalRows / batchSize);
     let currentBatch = 0;
     const parallelLimit = 3;
