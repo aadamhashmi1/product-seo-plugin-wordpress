@@ -1,8 +1,6 @@
 <?php
 
-function ai_generate_description($product_name, $api_key, $region = 'Global')
-{
-    // 🔒 Replace sensitive product terms
+function ai_generate_description($product_name, $api_key, $region = 'Global') {
     $moderated_terms = [
         'cigarette' => 'adult wellness product',
         'vape' => 'adult inhaler device',
@@ -24,9 +22,7 @@ function ai_generate_description($product_name, $api_key, $region = 'Global')
         }
     }
 
-    // Normalize keyword (remove punctuation for enforcement)
     $normalized_keyword = preg_replace('/[^a-zA-Z0-9 ]/', '', $product_name);
-
     $image_tag = "<img src='https://via.placeholder.com/800x600?text=" . urlencode($safe_name) . "' alt='" . esc_attr($safe_name) . "' style='width:100%;height:auto;margin-bottom:20px;' />";
 
     $base_prompt = <<<PROMPT
@@ -42,7 +38,7 @@ Requirements:
 
 Structure:
 <h1> Product Title
-<p> Introduction explaining "$safe_name" to buyers in <?php echo $region; ?> region(s), highlighting cultural preferences or market trends if relevant.
+<p> Introduction explaining "$safe_name" to buyers in $region region(s), highlighting cultural preferences or market trends if relevant.
 
 <h2> What is "$safe_name"?
 <h2> Benefits — 5 to 7 points
@@ -115,7 +111,7 @@ PROMPT;
         $error_log[] = "❌ Final failure for '$product_name'.";
     }
 
-    // 🎯 Enforce keyword mention count — exactly 13 mentions of the true product name
+    // 🎯 Enforce keyword mention count
     $target_count = 13;
     $pattern = '/' . preg_quote($normalized_keyword, '/') . '/i';
     $current_count = substr_count(strtolower($clean_content), strtolower($normalized_keyword));
@@ -132,19 +128,17 @@ PROMPT;
         }
     }
 
-    // 🔍 Final count check
     $final_count = substr_count(strtolower($clean_content), strtolower($normalized_keyword));
     if ($final_count !== 13) {
         $error_log[] = "⚠️ Final count for '$product_name' was $final_count instead of 13.";
     }
 
     if (!empty($error_log)) {
-        $log_path = plugin_dir_path(__FILE__) . '../uploads/error-log.txt';
-        if (!file_exists(dirname($log_path))) {
-            mkdir(dirname($log_path), 0755, true);
+        if (!file_exists(AI_GEN_UPLOAD_DIR)) {
+            mkdir(AI_GEN_UPLOAD_DIR, 0755, true);
         }
-        file_put_contents($log_path, implode("\n", $error_log) . "\n", FILE_APPEND);
+        file_put_contents(AI_GEN_LOG_FILE, implode("\n", $error_log) . "\n", FILE_APPEND);
     }
-        
+
     return $clean_content;
 }
