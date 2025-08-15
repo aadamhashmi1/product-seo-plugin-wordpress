@@ -54,6 +54,10 @@ function ai_generator_page() {
 }
 
 function ai_generator_process_csv() {
+    require_once ABSPATH . 'wp-admin/includes/image.php';
+    require_once ABSPATH . 'wp-admin/includes/file.php';
+    require_once ABSPATH . 'wp-admin/includes/media.php';
+
     $api_key = sanitize_text_field($_POST['groq_api_key']);
     $region  = sanitize_text_field($_POST['target_region']);
     $file    = $_FILES['csv_file']['tmp_name'];
@@ -124,6 +128,8 @@ function ai_generator_process_csv() {
 
         if (is_wp_error($product_id)) continue;
 
+        $price_set = false;
+
         foreach ($column_map as $csv_column => $meta_key) {
             $col_index = array_search(strtolower($csv_column), $header);
             if ($col_index === false || empty($row[$col_index])) continue;
@@ -134,52 +140,63 @@ function ai_generator_process_csv() {
                 case 'short_description':
                     wp_update_post(['ID' => $product_id, 'post_excerpt' => $value]);
                     break;
+
+                case '_regular_price':
+                    $clean_price = preg_replace('/[^0-9\.]/', '', $value);
+                    if (is_numeric($clean_price)) {
+                        update_post_meta($product_id, '_regular_price', $clean_price);
+                        update_post_meta($product_id, '_price', $clean_price);
+                        $price_set = true;
+                    }
+                    break;
+
                 case 'categories':
                     wp_set_object_terms($product_id, array_map('trim', explode(',', $value)), 'product_cat');
                     break;
+
                 case 'tags':
                     wp_set_object_terms($product_id, array_map('trim', explode(',', $value)), 'product_tag');
                     break;
+
                 case 'images':
-    $image_urls = array_map('trim', explode(',', $value));
-    $attachment_ids = [];
+                    $image_urls = array_map('trim', explode(',', $value));
+                    $attachment_ids = [];
 
-    foreach ($image_urls as $image_url) {
-        $tmp = download_url($image_url);
+                    foreach ($image_urls as $image_url) {
+                        $tmp = download_url($image_url);
 
-        if (is_wp_error($tmp)) continue;
+                        if (is_wp_error($tmp)) continue;
 
-        $file_array = [
-            'name'     => basename($image_url),
-            'tmp_name' => $tmp
-        ];
+                        $file_array = [
+                            'name'     => basename($image_url),
+                            'tmp_name' => $tmp
+                        ];
 
-        $attachment_id = media_handle_sideload($file_array, $product_id);
+                        $attachment_id = media_handle_sideload($file_array, $product_id);
 
-        if (!is_wp_error($attachment_id)) {
-            $attachment_ids[] = $attachment_id;
-        }
+                        if (!is_wp_error($attachment_id)) {
+                            $attachment_ids[] = $attachment_id;
+                        }
 
-        @unlink($tmp); // Clean up temp file
-    }
+                        @unlink($tmp);
+                    }
 
-    if (!empty($attachment_ids)) {
-        // Set featured image
-        set_post_thumbnail($product_id, $attachment_ids[0]);
+                    if (!empty($attachment_ids)) {
+                        set_post_thumbnail($product_id, $attachment_ids[0]);
 
-        // Set gallery images
-        if (count($attachment_ids) > 1) {
-            update_post_meta($product_id, '_product_image_gallery', implode(',', array_slice($attachment_ids, 1)));
-        }
-    }
-    break;
+                        if (count($attachment_ids) > 1) {
+                            update_post_meta($product_id, '_product_image_gallery', implode(',', array_slice($attachment_ids, 1)));
+                        }
+                    }
+                    break;
+
                 default:
                     update_post_meta($product_id, $meta_key, $value);
             }
         }
 
         // 🛒 Default fallback values
-        if (!get_post_meta($product_id, '_regular_price', true)) {
+        if (!$price_set) {
             update_post_meta($product_id, '_regular_price', '49.99');
             update_post_meta($product_id, '_price', '49.99');
         }
