@@ -214,10 +214,13 @@ function ai_generator_process_csv() {
         update_post_meta($product_id, 'rank_math_title', "$product_name | #1 Best $product_name");
         update_post_meta($product_id, 'rank_math_description', "$product_name | Buy $product_name Online");
 
-        $post_data = get_post($product_id);
-        $post_data->post_title .= ' ';
-        wp_update_post($post_data);
-        do_action('rank_math/recalculate_score', $product_id);
+        wp_update_post(['ID' => $product_id]);
+
+        // ✅ Trigger Rank Math recalculation after shutdown
+        add_action('shutdown', function () use ($product_id) {
+            do_action('rank_math/recalculate_score', $product_id);
+            do_action('rank_math/seo_score/index_post', $product_id);
+        });
     }
 
     // 📤 Export updated CSV
