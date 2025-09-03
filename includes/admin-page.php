@@ -1,5 +1,5 @@
 <?php
-// 🧭 Admin Menu & CSV Upload UI (Batch Processing)
+// 🧭 Admin Menu & CSV Upload UI
 
 add_action('admin_menu', function () {
     add_menu_page(
@@ -17,7 +17,7 @@ function ai_generator_page() {
     ?>
     <div class="wrap">
         <h1>AI Product Generator</h1>
-        <form id="ai-upload-form" method="POST" enctype="multipart/form-data">
+        <form method="POST" enctype="multipart/form-data">
             <table class="form-table">
                 <tr>
                     <th>CSV File (must include "name" column)</th>
@@ -43,66 +43,39 @@ function ai_generator_page() {
                     </td>
                 </tr>
             </table>
-            <p><input type="submit" value="Upload & Generate" class="button button-primary" /></p>
+            <p><input type="submit" name="submit_csv" value="Upload & Generate" class="button button-primary" /></p>
         </form>
-
-        <div id="ai-progress-section" style="display:none;">
-            <h2>Generating Products...</h2>
-            <div id="ai-progress-bar" style="width:100%;background:#eee;">
-                <div id="ai-progress-fill" style="width:0;height:20px;background:#4caf50;"></div>
-            </div>
-            <p id="ai-progress-text">0%</p>
-        </div>
     </div>
     <?php
+
+    if (isset($_POST['submit_csv'])) {
+        ai_generator_process_csv();
+    }
 }
 
-// Step 1: Upload CSV via AJAX
-add_action('wp_ajax_ai_gen_upload_csv', function () {
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error(['message' => 'Unauthorized']);
-    }
-
-    if (empty($_FILES['csv_file']['tmp_name']) || empty($_POST['groq_api_key'])) {
-        wp_send_json_error(['message' => 'Missing required fields']);
-    }
-
-    if (!file_exists(AI_GEN_UPLOAD_DIR)) {
-        mkdir(AI_GEN_UPLOAD_DIR, 0755, true);
-    }
-
-    $csv_path = AI_GEN_UPLOAD_DIR . 'pending_products.csv';
-    move_uploaded_file($_FILES['csv_file']['tmp_name'], $csv_path);
-
-    update_option('ai_gen_csv_path', $csv_path);
-    update_option('ai_gen_api_key', sanitize_text_field($_POST['groq_api_key']));
-    update_option('ai_gen_region', sanitize_text_field($_POST['target_region']));
-
-    wp_send_json_success(['message' => 'CSV uploaded successfully']);
-});
-
-// Step 2: Process batch via AJAX
-add_action('wp_ajax_ai_gen_process_batch', function () {
+function ai_generator_process_csv() {
     require_once ABSPATH . 'wp-admin/includes/image.php';
     require_once ABSPATH . 'wp-admin/includes/file.php';
     require_once ABSPATH . 'wp-admin/includes/media.php';
 
-    $csv_path = get_option('ai_gen_csv_path');
-    $api_key  = get_option('ai_gen_api_key');
-    $region   = get_option('ai_gen_region');
+    $api_key = sanitize_text_field($_POST['groq_api_key']);
+    $region  = sanitize_text_field($_POST['target_region']);
+    $file    = $_FILES['csv_file']['tmp_name'];
 
-    if (!file_exists($csv_path)) {
-        wp_send_json_error(['message' => 'CSV not found']);
+    if (!file_exists($file)) {
+        echo "<div class='notice notice-error'><p>Error: File not found.</p></div>";
+        return;
     }
 
-    $rows = array_map('str_getcsv', file($csv_path));
+    $rows = array_map('str_getcsv', file($file));
     $header = array_map('strtolower', array_map('trim', array_shift($rows)));
 
     $name_index = array_search('name', $header);
     $desc_index = array_search('description', $header);
 
     if ($name_index === false) {
-        wp_send_json_error(['message' => '"name" column missing in CSV']);
+        echo "<div class='notice notice-error'><p>Error: 'name' column missing in CSV.</p></div>";
+        return;
     }
 
     if ($desc_index === false) {
@@ -133,12 +106,9 @@ add_action('wp_ajax_ai_gen_process_batch', function () {
         'short description' => 'short_description',
     ];
 
-    $batch_size = 3; // Change this to adjust speed vs. stability
-    $offset = isset($_POST['offset']) ? intval($_POST['offset']) : 0;
-    $processed = 0;
+    $updated_rows = [];
 
-    for ($i = $offset; $i < min($offset + $batch_size, count($rows)); $i++) {
-        $row = $rows[$i];
+    foreach ($rows as $row) {
         $product_name = isset($row[$name_index]) ? trim($row[$name_index]) : '';
         if (empty($product_name)) continue;
 
@@ -147,6 +117,7 @@ add_action('wp_ajax_ai_gen_process_batch', function () {
             : ai_generate_description($product_name, $api_key, $region);
 
         $row[$desc_index] = $description;
+        $updated_rows[] = $row;
 
         $product_id = wp_insert_post([
             'post_title'   => $product_name,
@@ -245,44 +216,26 @@ add_action('wp_ajax_ai_gen_process_batch', function () {
 
         wp_update_post(['ID' => $product_id]);
 
+        // ✅ Trigger Rank Math recalculation after shutdown
         add_action('shutdown', function () use ($product_id) {
             do_action('rank_math/recalculate_score', $product_id);
             do_action('rank_math/seo_score/index_post', $product_id);
         });
-
-        $processed++;
     }
 
-    $done = ($offset + $processed) >= count($rows);
+    // 📤 Export updated CSV
+    if (!file_exists(AI_GEN_UPLOAD_DIR)) {
+        mkdir(AI_GEN_UPLOAD_DIR, 0755, true);
+    }
 
-    wp_send_json_success([
-        'processed' => $processed,
-        'offset'    => $offset + $processed,
-        'total'     => count($rows),
-        'done'      => $done
-    ]);
-});
-// ✅ Logged-in admin requests
-add_action('wp_ajax_ai_gen_process_batch', 'ai_gen_process_batch');
+    $output_path = AI_GEN_UPLOAD_DIR . 'updated_products.csv';
+    $fp = fopen($output_path, 'w');
+    fputcsv($fp, $header);
+    foreach ($updated_rows as $row) {
+        fputcsv($fp, $row);
+    }
+    fclose($fp);
 
-// ✅ Guests too (only if you want public access to this AJAX)
-add_action('wp_ajax_nopriv_ai_gen_process_batch', 'ai_gen_process_batch');
-
-function ai_gen_process_batch() {
-    // For now, just test if AJAX works
-    $offset = isset($_POST['offset']) ? intval($_POST['offset']) : 0;
-
-    wp_send_json_success([
-        'message' => 'AJAX works!',
-        'offset'  => $offset
-    ]);
+    $download_url = plugins_url('uploads/updated_products.csv', dirname(__FILE__));
+    echo "<div class='notice notice-success'><p><strong>Success!</strong> Products created. <a href='$download_url' target='_blank'>Download updated CSV</a></p></div>";
 }
-
-// Load JS
-add_action('admin_enqueue_scripts', function () {
-    wp_enqueue_script('ai-import', AI_GEN_PLUGIN_URL . 'js/ai-import.js', ['jquery'], '1.0', true);
-    wp_localize_script('ai-import', 'AIGen', [
-        'ajax_url' => admin_url('admin-ajax.php')
-    ]);
-});
-

@@ -29,13 +29,27 @@ function ai_generate_description($product_name, $api_key, $region = 'Global') {
 You are a professional product copywriter. Create a detailed, persuasive, SEO-optimized HTML article about "$safe_name" tailored for buyers in $region. It should be exactly 2000 words long.
 
 Requirements:
+-just write the required seo dont write any othe thing ..like things you will explain on what you will write etc.. be to the point..no extra words
+- write article for word press website
+- Article complaint with RANK MATH
+- write article  in such a way it should Appear in Google AI Overview (SGE)
+- Directly answers user questions.
+- Provides accurate, well-researched facts.
+- Target Informational Search Queries
+  AI Overview is triggered for queries like:
+  “What is…”
+  “How to…”
+  AI Overview often pulls from the same data sources as featured snippets. To optimize:
+  Use numbered lists (1., 2., 3.).
+- use latest technique cluster keywords to add more keywords  including key word "$safe_name"
 - Must be written in English
 - Use correct HTML: <h1>, <h2>, <h3>, <p>, <ul>, <li>
 - Embed this image at the top: $image_tag
 - Mention "$safe_name" exactly 13 times — no more, no less
 - Avoid keyword stuffing, repetition, or filler language
 - Include exactly 10 FAQs with <h3> + <p> tags
-
+- 
+Caution : Donot ask to continue i need articile in one go
 Structure:
 <h1> Product Title
 <p> Introduction explaining "$safe_name" to buyers in $region region(s), highlighting cultural preferences or market trends if relevant.
@@ -65,7 +79,7 @@ PROMPT;
         }
 
         $request_data = json_encode([
-            'model' => 'llama3-70b-8192',
+            'model' => 'meta-llama/llama-4-maverick-17b-128e-instruct',
             'messages' => [['role' => 'user', 'content' => $prompt]]
         ]);
 
